@@ -1,0 +1,146 @@
+---
+title: "Project_Car_price_prediction"
+author: "Bhooplam Praveen Gayathri Ananya"
+date: "2024-11-13"
+output: html_document
+---
+```{r}
+library(dplyr)
+library(lmtest)
+library(car)
+library(forecast)
+library(tseries)
+data=read.csv("car price prediction.csv")
+
+data_test = read.csv("synthetic_test_data.csv")
+
+str(data)
+
+print(names(data))
+
+colSums(is.na(data))
+
+data$doornumbers = ifelse(data$doornumbers == "two",2,4)
+data$cylindernumber <- ifelse(data$cylinder == "two",2,
+                              ifelse(data$cylinder == "three", 3,
+                              ifelse(data$cylindernumber == "four", 4,
+                                     ifelse(data$cylindernumber == "five", 5,
+                                            ifelse(data$cylindernumber == "six", 6,
+                                                   ifelse(data$cylindernumber == "eight", 8,
+                                                          ifelse(data$cylindernumber == "twelve", 12,
+                                                          data$cylindernumber)))))))
+
+data_test$doornumbers = ifelse(data_test$doornumbers == "two",2,4)
+data_test$cylindernumber <- ifelse(data_test$cylinder == "two",2,
+                              ifelse(data_test$cylinder == "three", 3,
+                              ifelse(data_test$cylindernumber == "four", 4,
+                                     ifelse(data_test$cylindernumber == "five", 5,
+                                            ifelse(data_test$cylindernumber == "six", 6,
+                                                   ifelse(data_test$cylindernumber == "eight", 8,
+                                                          ifelse(data_test$cylindernumber == "twelve", 12,
+                                                          data_test$cylindernumber)))))))
+
+
+# Display unique values for all columns
+unique_values <- lapply(select(data, fueltypes, aspiration, doornumbers, carbody, drivewheels, enginelocation, enginetype, cylindernumber, fuelsystem), unique)
+
+for (col_name in names(unique_values)){
+  cat("unique values for ",col_name,"\n")
+  
+  data %>%
+    count(!!sym(col_name)) %>%
+    rename(value = !!sym(col_name), count = n) %>%
+    print()
+  cat("\n")
+}
+
+# creating train and test data
+ # train_indices = sample(seq_len(nrow(data)), size = 0.9*nrow(data))
+ # train_data = data[train_indices, ]
+ # test_data = data[-train_indices, ]
+
+#creating initial model
+# model = lm(price ~ factor(fueltypes) + factor(aspiration) + doornumbers + factor(carbody) + factor(drivewheels) + factor(enginelocation)  + factor(enginetype) + cylindernumber + enginesize + fuelsystem + horsepower + citympg + highwaympg, data=data)
+
+model_full = lm(price ~  factor(fueltypes) + factor(aspiration) + doornumbers + factor(carbody) + factor(drivewheels) + factor(enginelocation)  + wheelbase + carlength + carwidth + carheight + curbweight + factor(enginetype) + cylindernumber + enginesize + factor(fuelsystem) + boreratio + stroke + compressionratio + horsepower + peakrpm + citympg + highwaympg, data=data)
+
+# removed fueltypes, enginetype dues to alias error
+# removed fuelsystem due to high vif
+# removed wheelbase + carlength + curbweight + cylindernumber + citympg + highwaympg due to high vif
+# model1 = lm(price ~ factor(aspiration) + doornumbers + factor(carbody) + factor(drivewheels) + factor(enginelocation) + carwidth + carheight + enginesize + boreratio + stroke + compressionratio + horsepower + peakrpm, data=data)
+# 
+# #removed compressionratio, doornumbers + stroke + horsepower
+# model = lm(price ~ factor(aspiration) + factor(carbody) + factor(drivewheels) + factor(enginelocation) + carwidth*carlength  + enginesize + boreratio + peakrpm + enginesize^2, data=data)
+# 
+# # alias(model)
+# vif(model)
+ summary(model_full)
+ plot(model_full)
+# 
+# #detecting auto correlation
+# # dwtest(model)
+# # 
+# # residuals <- residuals(model)
+# # acf(residuals)
+# 
+# 
+# # #resolving hetroskadacity
+# # model_modified = lm(log(price) ~ factor(fueltypes) + factor(aspiration) + doornumbers + factor(carbody) + factor(drivewheels) + factor(enginelocation)  + factor(enginetype) + cylindernumber + enginesize + fuelsystem + horsepower + citympg + highwaympg, data = data)
+# # 
+# # summary(model_modified)
+# # plot(model_modified)
+# 
+# # wls
+# # residuals_initial <- resid(model)
+# # weights <- 1 / (residuals_initial)
+# # 
+# # model_wls = lm(price ~ doornumbers + factor(carbody)  + cylindernumber + enginesize, data = data, weights = weights)
+# # 
+# # summary(model_wls)
+# # plot(model_wls)
+# 
+# # Influential Points
+#  cooksD <- cooks.distance(model)
+#  threshold <- 4 / length(cooksD)
+#  influential_points <- which(cooksD > threshold)
+#  print(influential_points)
+#  plot(cooksD, type = "h", main = "Cook's Distance", ylab = "Cook's Distance")
+#  abline(h = threshold, col = "red")
+#  
+#  data_cleaned <- data[-influential_points, ]
+#  model_modified =  lm(price ~ factor(aspiration) + factor(carbody) + factor(drivewheels) + factor(enginelocation) + carwidth*carlength  + enginesize + boreratio + peakrpm + enginesize^2, data=data_cleaned)
+#  summary(model_modified)
+#  plot(model_modified)
+#  
+# 
+#  
+#  #predicting values
+  predicted_values = predict(model_full, newdata = data_test)
+#  
+#  #modle test evaluation
+  actual_values = data_test$price
+  print(actual_values)
+  print(predicted_values)
+  mse = mean((predicted_values - actual_values) ^ 2)
+  rmse = sqrt(mse)
+  sst = sum((actual_values - mean(actual_values)) ^ 2)
+  sse = sum((actual_values - predicted_values) ^ 2)
+  r_squared = 1 - (sse / sst)
+#  
+  print(paste("MSE:", mse))
+  print(paste("RMSE:", rmse))
+  print(paste("R-squared:", r_squared))
+# 
+# # Plot actual and predicted values as lines
+# plot(actual_values, type = "l", col = "blue", lwd = 2, ylab = "Values",
+#      xlab = "Observation Index", main = "Actual vs Predicted Values")
+# lines(predicted_values, col = "orange", lwd = 2)
+# 
+# # Add a legend
+# legend("topright", legend = c("Actual Values", "Predicted Values"),
+#        col = c("blue", "orange"), lty = 1, lwd = 2)
+# 
+
+
+```
+
